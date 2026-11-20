@@ -106,6 +106,16 @@ at the top and distance rings in kilometres. Both markers and list entries
 open the aircraft details. No external map or location service is required.
 The JSON index is at `/api` and remains available at the root for API clients.
 
+Open `/wifi` from the Heltec hotspot to change its WPA2 passphrase, join a
+2.4 GHz WPA2/WPA3 Personal router, or forget that router. Each change needs
+the current hotspot password. The receiver keeps its hotspot in station
+mode and retries a lost router connection. The settings page shows the
+DHCP address for the dashboard on the LAN. If the subnets overlap, reconnect
+to the hotspot and open its gateway address. The USB command `netstatus`
+prints both addresses and connection state without printing passwords.
+HTTP clients can read `GET /api/wifi` from either network. The write route
+is available to DHCP clients directly associated with the hotspot.
+
 * `/api/status` gives receiver readiness, the nominal ADS-B and actual dial
   frequencies, uptime and the number of detected RF bursts.
 * `/api/messages` returns the retained CRC-checked DF11/DF17 frames, newest

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="it">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#193a64"><link rel="icon" href="data:,">
+<title>Wi-Fi · Heltec V3</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:#152c49;background:#edf3f7;font:16px/1.45 system-ui,-apple-system,sans-serif}
+header{background:#193a64;color:white;border-bottom:4px solid #a6d8ed}.wrap{max-width:38rem;margin:auto;padding:0 18px}
+header .wrap{min-height:54px;display:flex;align-items:center;justify-content:space-between}header a{color:white;padding:10px 0}
+main{padding-bottom:32px!important}h1{font-size:clamp(2rem,7vw,2.7rem);line-height:1.04;letter-spacing:-.05em;margin:28px 0 16px}
+h2{font-size:1.12rem;margin:0 0 10px}section{background:white;border:1px solid #c8d3dd;border-radius:6px;padding:16px;margin:12px 0}
+label{display:block;font-weight:650;font-size:.88rem;margin:12px 0 4px}input{width:100%;border:1px solid #8296a7;border-radius:4px;font:inherit;padding:10px}
+button{cursor:pointer;min-height:44px;background:#193a64;color:white;border:0;border-radius:4px;padding:9px 14px;font:650 .94rem system-ui;margin-top:12px}
+button:disabled{opacity:.55}button.secondary{color:#193a64;background:transparent;text-decoration:underline}
+.help{margin:.5rem 0;color:#495f73;font-size:.88rem}.net{margin:0;overflow-wrap:anywhere}
+a{color:#193a64}.feedback{background:#e2ebf1;border-left:3px solid #296186;padding:10px 12px}.failure{background:#fff1e0;border-color:#ad480c}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #1460a7;outline-offset:2px}
+[hidden]{display:none!important}
+</style>
+<header><div class="wrap"><b>Heltec V3</b><a href="/live">Traffico aereo</a></div></header>
+<main class="wrap">
+  <h1>Wi-Fi</h1>
+  <section><h2>Stato della rete</h2>
+    <p class="net" id="ap">Lettura della configurazione…</p>
+    <p class="net" id="router"></p><a id="lanLink" hidden>Apri la pagina dalla rete del router</a>
+    <p class="help" id="hint"></p>
+  </section>
+  <p id="feedback" class="feedback" role="status" hidden></p>
+  <div id="controls" hidden>
+    <section><label for="current">Password attuale dell’hotspot Heltec</label>
+      <input id="current" type="password" maxlength="63" autocomplete="current-password" required>
+      <p class="help">Serve per autorizzare la modifica che scegli sotto.</p></section>
+    <section><h2>Collegamento al router</h2>
+      <form id="joinForm"><label for="ssid">Nome della rete del router (SSID)</label>
+        <input id="ssid" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32" required>
+        <label for="routerKey">Password del router</label>
+        <input id="routerKey" type="password" minlength="8" maxlength="64" autocomplete="off" required>
+        <p class="help">Rete personale a 2,4 GHz con WPA2 o WPA3. L’hotspot resta disponibile.</p>
+        <button type="submit">Collega al router</button>
+        <button type="button" class="secondary" id="forget" hidden>Dimentica router</button>
+      </form></section>
+    <section><h2>Password dell’hotspot</h2>
+      <form id="apForm"><label for="newKey">Nuova password Heltec</label>
+        <input id="newKey" type="password" minlength="8" maxlength="63" autocomplete="new-password" required>
+        <label for="repeat">Ripeti la nuova password</label>
+        <input id="repeat" type="password" maxlength="63" autocomplete="new-password" required>
+        <p class="help">Da 8 a 63 caratteri ASCII. Dopo il cambio ricollegati con la nuova password.</p>
+        <button type="submit">Cambia password</button>
+      </form></section>
+  </div>
+</main>
+<script>
+"use strict";
+const el=id=>document.getElementById(id);
+let saving=false, polling=false, generation=0, timer;
+const labels={disabled:"Disattivato", connecting:"Connessione in corso",connected:"Connesso",
+  retrying:"Riconnessione in corso",not_found:"Rete non trovata. Nuovo tentativo automatico",
+  auth_failed:"Autenticazione non riuscita. Controlla la password del router"};
+function feedback(message,error=false){
+  const box=el("feedback");
+  box.textContent=message;
+  box.classList.toggle("failure",error);
+  box.hidden=false;
+  box.scrollIntoView({block:"nearest"});
+}
+async function request(options){
+  const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),6000);
+  try{
+    const r=await fetch("/api/wifi",{...options,signal:controller.signal,cache:"no-store"});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||"network");
+    return data;
+  }finally{clearTimeout(timeout);}
+}
+async function refresh(){
+  clearTimeout(timer);
+  if(document.hidden||saving||polling)return;
+  polling=true;
+  const current=generation;
+  try{
+    const s=await request({});
+    if(current!==generation)return;
+    el("ap").textContent="Hotspot "+s.ssid+" · "+s.ap_ip;
+    el("router").textContent="Router"+(s.router_ssid?" "+s.router_ssid:"")+" · "+(labels[s.state]||s.state);
+    el("controls").hidden=!s.can_manage;
+    el("forget").hidden=!s.router_ssid;
+    el("hint").textContent=s.can_manage?"":"Per modificare le reti, collegati direttamente a "+s.ssid+" e apri http://"+s.ap_ip+"/wifi.";
+    const link=el("lanLink");
+    link.hidden=!s.router_ip;
+    if(s.router_ip){
+      link.href="http://"+s.router_ip+"/live";
+      link.textContent="Pagina sul router · "+s.router_ip;
+    }else link.removeAttribute("href");
+  }catch{
+    if(current===generation) el("hint").textContent="Scheda momentaneamente irraggiungibile. Verifica la rete Wi-Fi del telefono.";
+  }finally{
+    polling=false;
+    if(!document.hidden&&!saving) timer=setTimeout(refresh,4000);
+  }
+}
+async function change(action,settings={}){
+  if(saving||!el("current").reportValidity())return;
+  saving=true; generation++; clearTimeout(timer);
+  const buttons=document.querySelectorAll("button");
+  buttons.forEach(b=>b.disabled=true);
+  try{
+    const body=JSON.stringify({...settings,action,current:el("current").value});
+    await request({method:"POST",headers:{"Content-Type":"application/json"},body});
+    for(const id of ["current","newKey","repeat","routerKey"])el(id).value="";
+    const msg={join:"Rete salvata. Quando il router assegna un indirizzo lo vedrai nello stato.",
+      forget:"Rete del router rimossa.",change_ap:"Password salvata. Ricollega il telefono all’hotspot con la nuova password."};
+    feedback(msg[action]);
+  }catch(e){
+    const reasons={current_password:"La password attuale della Heltec è errata.",
+      hotspot_only:"Collegati direttamente all’hotspot Heltec per salvare.",
+      input:"Controlla il nome rete e il formato della password.",storage:"Salvataggio non riuscito."};
+    feedback(reasons[e.message]||"Risposta non ricevuta. Verifica lo stato della rete prima di riprovare.",true);
+  }finally{
+    saving=false;
+    buttons.forEach(b=>b.disabled=false);
+    if(!document.hidden)timer=setTimeout(refresh,1800);
+  }
+}
+el("joinForm").onsubmit=e=>{
+  e.preventDefault();
+  const ssid=el("ssid").value,key=el("routerKey").value;
+  if(new TextEncoder().encode(ssid).length>32||/[\x00-\x1f\x7f]/.test(ssid))
+    return feedback("Il nome della rete può contenere fino a 32 byte.",true);
+  if(!/^[\x20-\x7e]{8,63}$/.test(key)&&!/^[\da-f]{64}$/i.test(key))
+    return feedback("Controlla la password del router.",true);
+  change("join",{ssid,password:key});
+};
+el("apForm").onsubmit=e=>{
+  e.preventDefault();
+  if(el("newKey").value!==el("repeat").value)return feedback("Le due nuove password non coincidono.",true);
+  if(!/^[\x20-\x7e]{8,63}$/.test(el("newKey").value))return feedback("Usa da 8 a 63 caratteri ASCII.",true);
+  change("change_ap",{password:el("newKey").value});
+};
+el("forget").onclick=()=>{if(confirm("Dimenticare la rete del router sulla Heltec?"))change("forget");};
+document.addEventListener("visibilitychange",()=>document.hidden?clearTimeout(timer):refresh());
+refresh();
+</script>
+</html>

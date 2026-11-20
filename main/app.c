@@ -8,6 +8,7 @@
 #include "board_esp.h"
 #ifdef CONFIG_ADSB_HELTEC_V3
 #include "wifi_api.h"
+#include "wifi_network.h"
 #endif
 #include "radio.h"
 #include "display.h"
@@ -296,6 +297,7 @@ static void console(bool screen_ok) {
             if (!strcmp(line,"dump") && mounted) storage_dump();
 #ifdef CONFIG_ADSB_HELTEC_V3
             else if (!strcmp(line,"wifi")) wifi_api_info();
+            else if (!strcmp(line,"netstatus")) wifi_network_status();
 #endif
             else if (!strcmp(line,"screen")) display_dump();
             else if (!strncmp(line,"key ",4)) {
@@ -370,6 +372,7 @@ static void field_task(void *unused) {
         console(screen_ok);
 #ifdef CONFIG_ADSB_HELTEC_V3
         wifi_api_sync_history();
+        wifi_network_poll();
 #endif
         finish_save();
         int64_t now=now_ms();

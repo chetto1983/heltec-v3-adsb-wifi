@@ -1,4 +1,5 @@
 #include "wifi_api.h"
+#include "wifi_network.h"
 #include "history.h"
 #include "esp_check.h"
 #include "esp_event.h"
@@ -14,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static char ssid[24], passphrase[13];
+static char ssid[24], passphrase[64];
 static esp_netif_t *ap;
 static httpd_handle_t server;
 static portMUX_TYPE cache_lock=portMUX_INITIALIZER_UNLOCKED;
@@ -145,7 +146,7 @@ static esp_err_t load_passphrase(void) {
     err=nvs_get_str(handle,"ap_pass",passphrase,&size);
     if (err==ESP_ERR_NVS_NOT_FOUND) {
         static const char alphabet[]="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        uint8_t bytes[sizeof(passphrase)-1];
+        uint8_t bytes[12];
         esp_fill_random(bytes,sizeof(bytes));
         for (size_t i=0;i<sizeof(bytes);i++) passphrase[i]=alphabet[bytes[i]&31];
         passphrase[sizeof(bytes)]=0;
@@ -159,8 +160,9 @@ static esp_err_t load_passphrase(void) {
 void wifi_api_info(void) {
     if (!server) { puts("SXWIFI unavailable"); return; }
     esp_netif_ip_info_t ip;
-    if (esp_netif_get_ip_info(ap,&ip)==ESP_OK)
-        printf("SXWIFI ssid=%s password=%s ip=" IPSTR "\n",ssid,passphrase,IP2STR(&ip.ip));
+    wifi_config_t cfg;
+    if (esp_netif_get_ip_info(ap,&ip)==ESP_OK && esp_wifi_get_config(WIFI_IF_AP,&cfg)==ESP_OK)
+        printf("SXWIFI ssid=%s password=%s ip=" IPSTR "\n",ssid,cfg.ap.password,IP2STR(&ip.ip));
 }
 
 #define TRY(call) ESP_RETURN_ON_ERROR((call),"wifi-api",#call)
@@ -182,8 +184,10 @@ esp_err_t wifi_api_start(void) {
     memcpy(config.ap.password,passphrase,strlen(passphrase)+1);
     TRY(esp_wifi_set_config(WIFI_IF_AP,&config));
     TRY(esp_wifi_start());
+    TRY(wifi_network_start(ap));
     httpd_config_t http=HTTPD_DEFAULT_CONFIG();
     http.max_open_sockets=3;
+    http.max_uri_handlers=12;
     http.lru_purge_enable=true;
     http.stack_size=6144;
     http.send_wait_timeout=3;
@@ -193,12 +197,15 @@ esp_err_t wifi_api_start(void) {
         {.uri="/",.method=HTTP_GET,.handler=home_get},
         {.uri="/live",.method=HTTP_GET,.handler=live_get},
         {.uri="/api",.method=HTTP_GET,.handler=index_get},
+        {.uri="/wifi",.method=HTTP_GET,.handler=wifi_settings_page},
+        {.uri="/api/wifi",.method=HTTP_GET,.handler=wifi_settings_get},
+        {.uri="/api/wifi",.method=HTTP_POST,.handler=wifi_settings_post},
         {.uri="/api/status",.method=HTTP_GET,.handler=status_get},
         {.uri="/api/aircraft",.method=HTTP_GET,.handler=list_get,.user_ctx=(void *)1},
         {.uri="/api/messages",.method=HTTP_GET,.handler=list_get}
     };
     for (unsigned i=0; i<sizeof(routes)/sizeof(routes[0]); i++)
         TRY(httpd_register_uri_handler(server,&routes[i]));
-    wifi_api_info();
+    wifi_network_status();
     return ESP_OK;
 }
