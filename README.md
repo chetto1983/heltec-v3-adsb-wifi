@@ -1,4 +1,8 @@
-# ADS-B on the LilyGO T3-S3 and T-Echo
+# ADS-B on the Heltec WiFi LoRa 32 V3
+
+This port of [antirez/sx1262-adsb](https://github.com/antirez/sx1262-adsb) adds a mobile aircraft dashboard, offline radar and Wi-Fi settings for the Heltec V3. Connect your phone to the board's hotspot and open `http://192.168.4.1/`. The `/wifi` page lets you change the hotspot password or connect the receiver to your router. [Download the Heltec firmware and installation instructions](firmware/heltec-v3-radar-wifi.zip) · [Build for the Heltec V3](#heltec-wifi-lora-32-v3)
+
+## LilyGO T3-S3 and T-Echo
 
 Tired of waiting for LoRa messages? You are in the right place: this firmware turns the **LilyGO T3-S3** with an OLED and the **original LilyGO T-Echo** with an e-paper display into pocket aircraft receivers. Both use an unmodified SX1262 radio (no hardware modifications needed). Connect an antenna to the LoRa antenna connector (even the stock antenna works) and power the board by USB or battery. It listens on 1090 MHz for the ADS-B messages in which aircraft broadcast their identity, position and movement. The display shows the flight's callsign or the aircraft's six-character address in large type. As reports arrive, the board fills in altitude, speed, direction and coordinates. The sampler, decoder and flight display logic are written in C. You can retrieve the recordings over USB after an outing. Note: **the technical details used in order to turn the SX1262 into an ADSB receiver are quite interesting, check them later**.
 
@@ -18,6 +22,7 @@ These are screenshots from the board. The upper pair shows the same packet three
 
 | Board | Download | What you need |
 | --- | --- | --- |
+| Heltec WiFi LoRa 32 V3, high-band SX1262, ESP32-S3FN8 | [Heltec V3 firmware with radar and Wi-Fi (.zip)](firmware/heltec-v3-radar-wifi.zip) | USB data cable, Python 3 and esptool 5. Follow the included `API-WIFI.txt` |
 | Original T-Echo, nRF52840, SX1262, 1.54-inch monochrome e-paper | [T-Echo firmware (.uf2)](firmware/techo-adsb.uf2) | USB data cable and the board's UF2 drive |
 | T3-S3, ESP32-S3, SX1262, monochrome OLED, 4 MB flash | [T3-S3 firmware and installer (.zip)](firmware/t3s3-adsb.zip) | USB data cable, Python 3 and esptool |
 
