@@ -31,6 +31,7 @@ static History live, frozen;
 static bool browsing;
 static unsigned back;
 static uint32_t current_boot;
+static unsigned generation;
 static bool dirty=true, restart_pages=true;
 static void remember_evicted(History *h, const Card *c);
 
@@ -76,6 +77,7 @@ void history_add(Card c) {
         live.count++;
     }
     live.cards[i] = c;
+    generation++;
     if (!browsing) dirty=true;
 }
 
@@ -96,6 +98,7 @@ void history_clear(void) {
     memset(&live,0,sizeof(live));
     memset(&frozen,0,sizeof(frozen));
     history_live();
+    generation++;
 }
 
 static int gray(unsigned code, const int *positions, unsigned n) {
@@ -226,6 +229,35 @@ static Flight *prior_flight(History *h, const Card *c) {
     for (unsigned i=0; i<h->prior_count; i++)
         if (h->prior[i].boot==c->boot && h->prior[i].address==addr) return &h->prior[i];
     return NULL;
+}
+
+unsigned history_generation(void) { return generation; }
+
+unsigned history_copy_cards(Card out[CARDS]) {
+    memcpy(out,live.cards,live.count*sizeof(*out));
+    return live.count;
+}
+
+/* Reconstruct only from the same boot, in the order of RF reception. The
+ * HTTP server owns its copy of the cards and never touches the live history. */
+void history_aircraft_fields(const Card *cards, unsigned newest, AircraftFields *out) {
+    const Card *last=&cards[newest];
+    Flight f={.boot=last->boot,.address=address(last)};
+    for (unsigned i=0; i<=newest; i++) {
+        const Card *c=&cards[i];
+        if (c->boot==f.boot && c->word[0]>>3!=2 && address(c)==f.address)
+            update_flight(&f,c);
+    }
+    memset(out,0,sizeof(*out));
+    strcpy(out->callsign,f.fields.name);
+    if (f.seen-f.height_ms<=60000) strcpy(out->altitude,f.fields.altitude);
+    if (f.seen-f.motion_ms<=60000) strcpy(out->speed,f.fields.speed);
+    if (f.cpr.fixed && f.seen-f.cpr.fix_ms<=60000) {
+        out->has_position=true;
+        out->lat=f.cpr.lat;
+        out->lon=f.cpr.lon;
+        out->position_ms=f.cpr.fix_ms;
+    }
 }
 
 static void remember_evicted(History *h, const Card *c) {

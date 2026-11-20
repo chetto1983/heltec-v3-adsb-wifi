@@ -19,4 +19,15 @@ void history_older(void);
 void history_live(void);
 CardView history_screen(Screen screen, uint32_t boot, int64_t now);
 bool card_valid(const Card *c);
+
+typedef struct {
+    char callsign[9], altitude[32], speed[32];
+    bool has_position;
+    double lat, lon;
+    int64_t position_ms;
+} AircraftFields;
+
+unsigned history_generation(void);
+unsigned history_copy_cards(Card out[CARDS]);
+void history_aircraft_fields(const Card *cards, unsigned newest, AircraftFields *out);
 #endif

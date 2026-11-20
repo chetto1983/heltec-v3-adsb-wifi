@@ -91,6 +91,24 @@ On first installation the capture partition at 0x100000 must be blank for
 the receiver to initialize its journal. The capture journal is retained on
 subsequent updates that flash just the images from the manifest.
 
+The Heltec creates its own 2.4 GHz WPA2 access point. Send `wifi` on the
+serial console to read its SSID, per-device password and local IPv4 address.
+The password persists across resets. The default HTTP address is
+`http://192.168.4.1/`. The root lists three public GET routes on that network.
+
+* `/api/status` gives receiver readiness, the nominal ADS-B and actual dial
+  frequencies, uptime and the number of detected RF bursts.
+* `/api/messages` returns the retained CRC-checked DF11/DF17 frames, newest
+  first, with their ICAO address, frame hex, boot ID and reception time.
+* `/api/aircraft` groups those frames by ICAO, with the most recently
+  observed aircraft first. Callsign, altitude, speed and position are
+  nullable and come from frames in the same boot. Altitude and speed carry
+  their units. Coordinates are decimal degrees.
+
+Both lists use the most recent 64 history cards. After a reboot, saved
+messages keep the original boot ID and `seen_ms` (uptime at reception).
+Their `age_s` is null until a new message arrives for a live aircraft.
+
 ### T-Echo
 
 Install Arduino CLI, CMake, Git and Python 3. On Linux, the BSP also calls `adafruit-nrfutil` from your PATH when packaging the image. Install Adafruit’s nRF52 board package, then run the build script from the root of this repository. It uses the PCA10056 pin numbering used by FreakWAN and links the application for S140 6.1.1.

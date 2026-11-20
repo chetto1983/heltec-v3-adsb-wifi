@@ -66,6 +66,14 @@ int main(void) {
     history_add(speed);
     history_add(even);
     history_add(odd);
+    Card exported[CARDS];
+    AircraftFields api;
+    unsigned exported_count=history_copy_cards(exported);
+    CHECK(exported_count>0);
+    history_aircraft_fields(exported,exported_count-1,&api);
+    CHECK(!strcmp(api.callsign,"THY4DC") && !strcmp(api.altitude,"Alt 1675 ft"));
+    CHECK(!strcmp(api.speed,"GS 141 kt") && api.has_position && api.position_ms==even.ms);
+    CHECK(api.lat>37.47550 && api.lat<37.47552 && api.lon>15.17176 && api.lon<15.17178);
     CHECK(history_screen(s,2,6000)==AIRCRAFT_CARD);
     CHECK(!strcmp(s[1],"THY4DC") && !strcmp(s[3],"1675 ft") && strstr(s[0],"1/3"));
     CHECK(strstr(s[5],"GS ") && strstr(s[6],"Track ") && strstr(s[7],"V/S "));
@@ -124,6 +132,7 @@ int main(void) {
      * must start with neither the old name nor the old odd/even partner. */
     history_older();
     history_clear();
+    CHECK(history_copy_cards(exported)==0);
     history_older();
     CHECK(history_screen(s,3,36000)==NO_CARD && !memcmp(s,listening,sizeof(s)));
     even.ms=37000;

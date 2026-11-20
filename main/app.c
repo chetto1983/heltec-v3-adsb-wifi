@@ -6,6 +6,9 @@
  * owns the screen, button, flash and USB. It can sleep through every bit. */
 #include "receiver.h"
 #include "board_esp.h"
+#ifdef CONFIG_ADSB_HELTEC_V3
+#include "wifi_api.h"
+#endif
 #include "radio.h"
 #include "display.h"
 #include "storage.h"
@@ -39,6 +42,13 @@ static void wake_radio(void *task) { xTaskNotifyGive((TaskHandle_t)task); }
 /* Frequency changes cross the cores as requests. Only the radio task touches
  * the synthesizer. "Applied" means calibration and rearming both succeeded. */
 static atomic_uint requested_hz=DEFAULT_HZ, applied_hz, failed_hz;
+#ifdef CONFIG_ADSB_HELTEC_V3
+ReceiverStatus receiver_status(void) {
+    return (ReceiverStatus){.boot=boot_id,.dial_hz=atomic_load(&applied_hz),
+        .bursts=atomic_load(&bursts),.radio_restarts=atomic_load(&restarts),
+        .ready=atomic_load(&ready)};
+}
+#endif
 static atomic_bool watching;
 static Menu menu;
 static uint32_t saved_hz=DEFAULT_HZ;
@@ -284,6 +294,9 @@ static void console(bool screen_ok) {
         line[used]=0;
         if (!overlong && used) {
             if (!strcmp(line,"dump") && mounted) storage_dump();
+#ifdef CONFIG_ADSB_HELTEC_V3
+            else if (!strcmp(line,"wifi")) wifi_api_info();
+#endif
             else if (!strcmp(line,"screen")) display_dump();
             else if (!strncmp(line,"key ",4)) {
                 const char *key=line+4;
@@ -316,6 +329,11 @@ static void field_task(void *unused) {
     bool oled=display_init()==ESP_OK, screen_ok=oled;
     history_set_boot(boot_id);
     if (mounted) storage_restore();
+#ifdef CONFIG_ADSB_HELTEC_V3
+    wifi_api_sync_history();
+    esp_err_t werr=wifi_api_start();
+    if (werr!=ESP_OK) printf("SXWIFI error=%s\n",esp_err_to_name(werr));
+#endif
     gpio_config_t pin={.pin_bit_mask=1ULL<<BOOT_BUTTON,.mode=GPIO_MODE_INPUT,.pull_up_en=true};
     ESP_ERROR_CHECK(gpio_config(&pin));
     int64_t last_save=-30000, last_draw=-1000, last_clock=now_ms();
@@ -350,6 +368,9 @@ static void field_task(void *unused) {
         }
         button();
         console(screen_ok);
+#ifdef CONFIG_ADSB_HELTEC_V3
+        wifi_api_sync_history();
+#endif
         finish_save();
         int64_t now=now_ms();
         if (oled && (redraw || now-last_draw>=100)) {
