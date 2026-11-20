@@ -1,0 +1,12 @@
+#pragma once
+#include "sdkconfig.h"
+
+#ifdef CONFIG_ADSB_HELTEC_V3
+enum { CS=8, CLK=9, MISO=11, MOSI=10, RESET=12, BUSY=13 };
+enum { OLED_SDA=17, OLED_SCL=18, OLED_RESET=21, VEXT_ENABLE=36 };
+enum { TCXO_VOLTAGE_CODE=2, CAPTURE_QUEUE_DEPTH=32 }; /* DIO3 at 1.8 V */
+#else
+enum { CS=7, CLK=5, MISO=3, MOSI=6, RESET=8, BUSY=34 };
+enum { OLED_SDA=18, OLED_SCL=17 };
+enum { TCXO_VOLTAGE_CODE=1, CAPTURE_QUEUE_DEPTH=96 }; /* DIO3 at 1.7 V */
+#endif

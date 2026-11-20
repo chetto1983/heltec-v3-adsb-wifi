@@ -75,6 +75,22 @@ The aircraft sent an odd and an even Compact Position Reporting (CPR) message 1.
 
 ## Build from source
 
+### Heltec WiFi LoRa 32 V3
+
+For the ESP32-S3FN8 / SX1262 board, select the Heltec profile in a separate
+build directory using ESP-IDF v5.1.1:
+
+```sh
+idf.py -B build-heltec -D SDKCONFIG=build-heltec/sdkconfig -D SDKCONFIG_DEFAULTS=sdkconfig.heltec-v3 build
+```
+
+The CP210x bridge carries the receiver console at 115200 baud. The profile
+uses the onboard SSD1306 and BOOT button, and fits the decoder in internal RAM.
+Use the images and offsets listed in this build's `flasher_args.json`.
+On first installation the capture partition at 0x100000 must be blank for
+the receiver to initialize its journal. The capture journal is retained on
+subsequent updates that flash just the images from the manifest.
+
 ### T-Echo
 
 Install Arduino CLI, CMake, Git and Python 3. On Linux, the BSP also calls `adafruit-nrfutil` from your PATH when packaging the image. Install Adafruit’s nRF52 board package, then run the build script from the root of this repository. It uses the PCA10056 pin numbering used by FreakWAN and links the application for S140 6.1.1.

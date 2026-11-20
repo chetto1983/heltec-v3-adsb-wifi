@@ -5,6 +5,7 @@
  * FreeRTOS copies each Capture into the queue. The third, low-priority task
  * owns the screen, button, flash and USB. It can sleep through every bit. */
 #include "receiver.h"
+#include "board_esp.h"
 #include "radio.h"
 #include "display.h"
 #include "storage.h"
@@ -24,7 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
-enum { QUEUE_DEPTH=96, UNCHECKED=8, BOOT_BUTTON=0 };
+enum { QUEUE_DEPTH=CAPTURE_QUEUE_DEPTH, UNCHECKED=8, BOOT_BUTTON=0 };
 /* Advances only when both the fresh queue and the deferred passes are idle. */
 static atomic_uint idle_polls;
 static QueueHandle_t captures, results;

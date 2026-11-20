@@ -2,8 +2,11 @@
  * of eight pixels, exactly the layout of the font, so text needs no canvas
  * library. Send a new screen only when something on it actually changed. */
 #include "display.h"
+#include "board_esp.h"
 #include "font8x8.h"
+#include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "freertos/task.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -16,7 +19,18 @@ static esp_err_t send(const uint8_t *bytes, size_t count) {
 }
 
 esp_err_t display_init(void) {
-    i2c_config_t cfg = {.mode=I2C_MODE_MASTER,.sda_io_num=18,.scl_io_num=17,
+#ifdef CONFIG_ADSB_HELTEC_V3
+    gpio_config_t power = {.pin_bit_mask=(1ULL<<VEXT_ENABLE)|(1ULL<<OLED_RESET),
+                           .mode=GPIO_MODE_OUTPUT};
+    esp_err_t power_err=gpio_config(&power);
+    if (power_err!=ESP_OK) return power_err;
+    gpio_set_level(VEXT_ENABLE,0);
+    gpio_set_level(OLED_RESET,0);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_set_level(OLED_RESET,1);
+    vTaskDelay(pdMS_TO_TICKS(20));
+#endif
+    i2c_config_t cfg = {.mode=I2C_MODE_MASTER,.sda_io_num=OLED_SDA,.scl_io_num=OLED_SCL,
         .sda_pullup_en=true,.scl_pullup_en=true,.master.clk_speed=400000};
     esp_err_t err = i2c_param_config(bus,&cfg);
     if (err==ESP_OK) err = i2c_driver_install(bus,cfg.mode,0,0,0);
