@@ -94,7 +94,11 @@ subsequent updates that flash just the images from the manifest.
 The Heltec creates its own 2.4 GHz WPA2 access point. Send `wifi` on the
 serial console to read its SSID, per-device password and local IPv4 address.
 The password persists across resets. The default HTTP address is
-`http://192.168.4.1/`. The root lists three public GET routes on that network.
+`http://192.168.4.1/`. A phone browser opens an Italian live aircraft page.
+The same page is available at `/live`. It refreshes every three seconds
+while visible. The two-minute view lists recent aircraft, and the history
+view includes older contacts and saved contacts from earlier boots.
+The JSON index is at `/api` and remains available at the root for API clients.
 
 * `/api/status` gives receiver readiness, the nominal ADS-B and actual dial
   frequencies, uptime and the number of detected RF bursts.

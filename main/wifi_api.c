@@ -50,6 +50,22 @@ static esp_err_t index_get(httpd_req_t *req) {
     return httpd_resp_sendstr(req,"{\"status\":\"/api/status\",\"aircraft\":\"/api/aircraft\",\"messages\":\"/api/messages\"}");
 }
 
+static esp_err_t live_get(httpd_req_t *req) {
+    extern const uint8_t live_start[] asm("_binary_live_html_start");
+    extern const uint8_t live_end[] asm("_binary_live_html_end");
+    httpd_resp_set_type(req,"text/html; charset=utf-8");
+    httpd_resp_set_hdr(req,"Cache-Control","no-store");
+    return httpd_resp_send(req,(const char *)live_start,live_end-live_start);
+}
+
+static esp_err_t home_get(httpd_req_t *req) {
+    char accept[384];
+    httpd_resp_set_hdr(req,"Vary","Accept");
+    if (httpd_req_get_hdr_value_str(req,"Accept",accept,sizeof(accept))==ESP_OK &&
+        strstr(accept,"text/html")) return live_get(req);
+    return index_get(req);
+}
+
 static esp_err_t status_get(httpd_req_t *req) {
     ReceiverStatus s=receiver_status();
     char reply[256];
@@ -174,7 +190,9 @@ esp_err_t wifi_api_start(void) {
     http.recv_wait_timeout=3;
     TRY(httpd_start(&server,&http));
     static const httpd_uri_t routes[]={
-        {.uri="/",.method=HTTP_GET,.handler=index_get},
+        {.uri="/",.method=HTTP_GET,.handler=home_get},
+        {.uri="/live",.method=HTTP_GET,.handler=live_get},
+        {.uri="/api",.method=HTTP_GET,.handler=index_get},
         {.uri="/api/status",.method=HTTP_GET,.handler=status_get},
         {.uri="/api/aircraft",.method=HTTP_GET,.handler=list_get,.user_ctx=(void *)1},
         {.uri="/api/messages",.method=HTTP_GET,.handler=list_get}

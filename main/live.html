@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="it">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#193a64">
+<link rel="icon" href="data:,">
+<title>Traffico aereo · Heltec V3</title>
+<style>
+*{box-sizing:border-box}
+:root{color-scheme:light;--ink:#152c49;--muted:#4b6175;--blue:#193a64;--line:#c8d3dd;--paper:#fff;--sky:#edf3f7}
+body{margin:0;color:var(--ink);background:var(--sky);font:16px/1.45 system-ui,-apple-system,sans-serif}
+.wrap{width:min(100%,48rem);margin-inline:auto;padding-inline:clamp(16px,5vw,36px)}
+header{background:var(--blue);color:white;border-bottom:4px solid #a6d8ed}
+header .wrap{min-height:54px;display:flex;align-items:center;justify-content:space-between}
+.device{font-weight:720;letter-spacing:.02em;display:flex;align-items:center;gap:12px}
+.bars{display:inline-flex;align-items:center;gap:3px;height:20px}
+.bars i{width:3px;background:#a6d8ed;height:8px}.bars i:nth-child(2){height:18px}.bars i:nth-child(3){height:13px}
+.band,.id,.alt,.age,time{font-variant-numeric:tabular-nums}
+.band{font-size:.875rem}
+main{padding-block:clamp(26px,5vw,48px)}
+h1{font-size:clamp(2rem,7vw,3rem);line-height:1.04;letter-spacing:-.055em;margin:0 0 14px}
+.state{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:.9rem;min-height:24px}
+.dot{width:10px;height:10px;background:#667581;border-radius:50%;flex:none}
+.state[data-mode=ok] .dot{background:#087753}
+.state[data-mode=error] .dot{background:#ad480c}
+.switch{display:flex;gap:4px;padding-top:26px;border-bottom:1px solid #8da1b3}
+button{font:inherit;cursor:pointer}
+.switch button{border:0;border-bottom:3px solid transparent;color:var(--muted);background:transparent;padding:10px 12px;min-height:46px;font-weight:650}
+.switch button[aria-pressed=true]{border-color:var(--blue);color:var(--blue)}
+.count{margin-left:5px;border-radius:4px;background:#d9e3eb;padding:1px 5px;font:600 .8rem/1.3 ui-monospace,monospace}
+button:focus-visible,a:focus-visible{outline:3px solid #1460a7;outline-offset:2px}
+.notice{margin:14px 0 0;border-left:3px solid #aa4b12;padding:9px 12px;background:#fff2e4;color:#653008}
+.notice button{display:inline-block;margin-left:4px;color:inherit;text-decoration:underline;border:0;background:transparent;min-height:38px}
+.list{margin-top:20px;background:var(--paper);border-block:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;table-layout:fixed;text-align:left}
+col:first-child{width:42%}col:nth-child(2){width:28%}
+th,td{padding:12px clamp(8px,2.1vw,16px)}
+thead{background:#e2ebf1}th{font-size:.8rem;color:#364f65;font-weight:650}
+th:last-child,td:last-child{text-align:right}
+tbody tr+tr{border-top:1px solid var(--line)}
+.id{font:700 clamp(1.05rem,3.8vw,1.35rem)/1.22 ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+.sub{display:block;color:var(--muted);font-size:.76rem;margin-top:3px}
+.alt{font-size:clamp(.9rem,3vw,1.05rem);font-weight:650}
+.age{color:#344e62;font-size:.92rem}
+.empty{margin:0;padding:24px 16px;color:var(--muted)}
+footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0;color:var(--muted);font-size:.82rem}
+footer a{color:var(--blue);display:inline-flex;align-items:center;min-height:44px}
+[hidden]{display:none!important}
+</style>
+<header><div class="wrap"><span class="device"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>Heltec V3</span><span class="band">ADS-B · 1090 MHz</span></div></header>
+<main class="wrap">
+  <h1>Traffico aereo</h1>
+  <div class="state" id="state" role="status"><span class="dot" aria-hidden="true"></span><span id="stateText">Connessione alla Heltec…</span></div>
+  <div class="switch" role="group" aria-label="Periodo di ricezione">
+    <button id="recent" type="button" aria-pressed="true" aria-controls="list">Ultimi 2 min <span class="count" id="recentCount">–</span></button>
+    <button id="past" type="button" aria-pressed="false" aria-controls="list">Storico <span class="count" id="pastCount">–</span></button>
+  </div>
+  <div class="notice" id="notice" hidden>Verifica il collegamento al Wi-Fi della Heltec. <button id="retry" type="button">Riprova</button></div>
+  <section class="list" id="list" aria-label="Avvistamenti">
+    <table><colgroup><col><col><col></colgroup><thead><tr><th scope="col">Aereo</th><th scope="col">Quota</th><th scope="col">Visto</th></tr></thead><tbody id="flights"></tbody></table>
+    <p class="empty" id="empty">Lettura degli avvistamenti…</p>
+  </section>
+  <footer><span id="updated">In attesa dei dati</span><a href="/api">Indice API</a></footer>
+  <noscript>Attiva JavaScript per aggiornare l’elenco, oppure apri <a href="/api/aircraft">i dati degli aerei</a>.</noscript>
+</main>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const clock = new Intl.DateTimeFormat("it-IT", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+const numbers = new Intl.NumberFormat("it-IT");
+let aircraft = [], hasData = false, historyView = false, receivedAt = 0, pending = false, timer;
+let lastRowsKey = "", rows = [];
+
+function ageOf(flight, elapsed) {
+  return Number.isFinite(flight.age_s) ? flight.age_s + elapsed : null;
+}
+function ageText(age) {
+  if (age === null) return "Avvio precedente";
+  if (age < 2) return "Ora";
+  if (age < 60) return age + " s fa";
+  if (age < 3600) return Math.floor(age / 60) + " min fa";
+  if (age < 86400) return Math.floor(age / 3600) + " h fa";
+  return Math.floor(age / 86400) + " g fa";
+}
+function altitude(value) {
+  if (!value) return "—";
+  if (value === "On ground") return "A terra";
+  const parsed = /^(Alt|GNSS) (-?\d+) (ft|m)$/.exec(value);
+  return parsed ? numbers.format(Number(parsed[2])) + " " + parsed[3] : value;
+}
+function draw() {
+  if (!hasData) return;
+  const elapsed = Math.max(0, Math.floor((performance.now() - receivedAt) / 1000));
+  const live = [], old = [];
+  for (const f of aircraft) {
+    const age = ageOf(f, elapsed);
+    (age !== null && age < 120 ? live : old).push(f);
+  }
+  el("recentCount").textContent = live.length;
+  el("pastCount").textContent = old.length;
+  const visible = historyView ? old : live;
+  const key = JSON.stringify(visible.map(f => [f.icao, f.callsign, f.altitude]));
+  if (key !== lastRowsKey) {
+    const fragment = document.createDocumentFragment();
+    rows = visible.map(f => {
+      const tr = document.createElement("tr"), name = tr.insertCell();
+      const id = document.createElement("strong");
+      id.className = "id";
+      id.textContent = f.callsign || f.icao;
+      name.append(id);
+      const sub = document.createElement("small");
+      sub.className = "sub";
+      sub.textContent = f.callsign ? "ICAO " + f.icao : "Codice ICAO";
+      name.append(sub);
+      const alt = tr.insertCell();
+      alt.className = "alt";
+      alt.textContent = altitude(f.altitude);
+      if (!f.altitude) alt.setAttribute("aria-label", "Quota sconosciuta");
+      const seen = tr.insertCell();
+      seen.className = "age";
+      fragment.append(tr);
+      return seen;
+    });
+    el("flights").replaceChildren(fragment);
+    lastRowsKey = key;
+  }
+  visible.forEach((f, index) => {
+    const text = ageText(ageOf(f, elapsed));
+    if (rows[index].textContent !== text) rows[index].textContent = text;
+  });
+  el("empty").hidden = visible.length > 0;
+  el("empty").textContent = historyView ? "Nessun avvistamento nello storico." : "Nessun aereo ricevuto negli ultimi 2 minuti.";
+}
+function selectView(past) {
+  historyView = past;
+  el("recent").setAttribute("aria-pressed", String(!past));
+  el("past").setAttribute("aria-pressed", String(past));
+  draw();
+}
+function showState(mode, label) {
+  el("state").dataset.mode = mode;
+  if (el("stateText").textContent !== label) el("stateText").textContent = label;
+}
+async function getJSON(url, signal) {
+  const r = await fetch(url, {cache:"no-store", signal});
+  if (!r.ok) throw new Error(String(r.status));
+  return r.json();
+}
+async function refresh() {
+  clearTimeout(timer);
+  if (pending || document.hidden) return;
+  pending = true;
+  const aborter = new AbortController();
+  const timeout = setTimeout(() => aborter.abort(), 6500);
+  try {
+    const status = await getJSON("/api/status", aborter.signal);
+    const data = await getJSON("/api/aircraft", aborter.signal);
+    if (!Array.isArray(data.aircraft) || typeof status.radio_ready !== "boolean") throw new Error("Risposta incompleta");
+    aircraft = data.aircraft;
+    receivedAt = performance.now();
+    hasData = true;
+    showState(status.radio_ready ? "ok" : "waiting", status.radio_ready ? "Radio in ascolto" : "In attesa della radio");
+    el("notice").hidden = true;
+    el("updated").textContent = "Aggiornato alle " + clock.format(Date.now());
+    draw();
+  } catch {
+    showState("error", "Heltec irraggiungibile");
+    el("notice").hidden = false;
+    if (!hasData) el("empty").textContent = "In attesa del collegamento.";
+  } finally {
+    clearTimeout(timeout);
+    pending = false;
+    if (!document.hidden) timer = setTimeout(refresh, 3000);
+  }
+}
+el("recent").onclick = () => selectView(false);
+el("past").onclick = () => selectView(true);
+el("retry").onclick = refresh;
+document.addEventListener("visibilitychange", () => document.hidden ? clearTimeout(timer) : refresh());
+setInterval(() => { if (!document.hidden) draw(); }, 1000);
+refresh();
+</script>
+</html>
