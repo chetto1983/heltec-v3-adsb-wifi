@@ -98,6 +98,12 @@ The password persists across resets. The default HTTP address is
 The same page is available at `/live`. It refreshes every three seconds
 while visible. The two-minute view lists recent aircraft, and the history
 view includes older contacts and saved contacts from earlier boots.
+Tap an aircraft to view its reported speed, altitude, coordinates and the five
+most recent retained messages from the same boot. The Radar tab accepts the
+receiver's latitude and longitude and stores them locally in the browser.
+It plots fixes less than two minutes old from the current boot, with north
+at the top and distance rings in kilometres. Both markers and list entries
+open the aircraft details. No external map or location service is required.
 The JSON index is at `/api` and remains available at the root for API clients.
 
 * `/api/status` gives receiver readiness, the nominal ADS-B and actual dial

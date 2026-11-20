@@ -45,21 +45,83 @@ tbody tr+tr{border-top:1px solid var(--line)}
 .empty{margin:0;padding:24px 16px;color:var(--muted)}
 footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0;color:var(--muted);font-size:.82rem}
 footer a{color:var(--blue);display:inline-flex;align-items:center;min-height:44px}
+.flight-link,.text-button{appearance:none;padding:0;border:0;background:none;color:var(--blue);text-decoration:underline;text-underline-offset:.2em}
+.flight-link{min-height:36px;text-align:left}
+tbody tr{cursor:pointer}
+.radar-panel,dialog{background:white;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+.radar-panel{margin-top:20px;padding:clamp(12px,4vw,24px)}
+.radar-panel h2,dialog h2{margin:0;line-height:1.15;letter-spacing:-.03em}
+.scope{position:relative;max-width:400px;margin:12px auto;aspect-ratio:1;border-radius:50%;overflow:hidden;color:#e3f3ff;background:#18384b}
+.scope::before,.scope::after{content:"";position:absolute;background:#50717e;pointer-events:none}
+.scope::before{width:1px;left:50%;top:9%;bottom:9%}.scope::after{height:1px;top:50%;left:9%;right:9%}
+.ring{position:absolute;border:1px solid #6b8e9b;border-radius:50%;inset:9%}.ring.mid{inset:22.6667%}.ring.inner{inset:36.3333%}
+.origin,.marker{position:absolute;transform:translate(-50%,-50%);z-index:1}
+.origin{left:50%;top:50%;width:7px;height:7px;border-radius:2px;background:white}
+.north,.east,.south,.west{position:absolute;font:bold .8rem/1 system-ui}
+.north,.south{left:50%;transform:translateX(-50%)}.north{top:3%}.south{bottom:3%}
+.east,.west{top:50%;transform:translateY(-50%)}.east{right:3%}.west{left:3%}
+.marker{width:32px;height:32px;border:0;background:transparent}
+.marker::before{content:"";display:block;width:10px;height:10px;margin:auto;border-radius:50%;background:#a6f2ba;box-shadow:0 0 0 2px #18384b}
+.marker span{position:absolute;top:24px;left:50%;transform:translateX(-50%);background:#18384b;color:#e3f3ff;border-radius:2px;font:600 .65rem/1.2 ui-monospace,monospace;padding:1px 2px;white-space:nowrap;pointer-events:none}
+.position-form,.radar-legend,dialog dl{display:grid;gap:12px}
+.position-form{grid-template-columns:repeat(2,minmax(0,1fr));margin:12px 0}
+.position-form label{font-size:.875rem;font-weight:650}
+.position-form input{margin-top:3px;padding:10px;width:100%;font:inherit;border:1px solid #8da1b3;border-radius:4px}
+.position-form button{grid-column:1/-1;background:var(--blue);color:white;border:0;border-radius:4px;min-height:42px}
+.meta,.help{font-size:.875rem;color:var(--muted)}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.meta button{min-height:36px}
+.radar-legend{gap:0}.radar-legend button{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:9px 2px;border:0;border-top:1px solid var(--line);background:white;color:var(--ink);min-height:44px}
+.radar-legend strong{color:var(--blue);text-decoration:underline}
+dialog{width:min(94vw,30rem);max-height:86vh;padding:20px;box-shadow:0 10px 60px #10253f50}dialog::backdrop{background:#152c4990}
+dialog header{background:white;color:var(--ink);display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line)}
+dialog header button{min-height:44px;padding:5px 8px}dialog dl{grid-template-columns:auto 1fr;gap:8px 14px}dialog dt{color:var(--muted)}dialog dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+dialog h3{margin:18px 0 6px;font-size:1rem}
+#frames{list-style:none;padding:0;margin:0}#frames li{padding:7px 0;border-top:1px solid var(--line)}#frames code{display:block;overflow-wrap:anywhere}
+@media(max-width:360px){.switch button{padding-inline:8px}.position-form{grid-template-columns:1fr}}
 [hidden]{display:none!important}
 </style>
 <header><div class="wrap"><span class="device"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>Heltec V3</span><span class="band">ADS-B · 1090 MHz</span></div></header>
 <main class="wrap">
   <h1>Traffico aereo</h1>
   <div class="state" id="state" role="status"><span class="dot" aria-hidden="true"></span><span id="stateText">Connessione alla Heltec…</span></div>
-  <div class="switch" role="group" aria-label="Periodo di ricezione">
+  <div class="switch" role="group" aria-label="Vista del traffico">
     <button id="recent" type="button" aria-pressed="true" aria-controls="list">Ultimi 2 min <span class="count" id="recentCount">–</span></button>
     <button id="past" type="button" aria-pressed="false" aria-controls="list">Storico <span class="count" id="pastCount">–</span></button>
+    <button id="radarTab" type="button" aria-pressed="false" aria-controls="radar">Radar</button>
   </div>
   <div class="notice" id="notice" hidden>Verifica il collegamento al Wi-Fi della Heltec. <button id="retry" type="button">Riprova</button></div>
   <section class="list" id="list" aria-label="Avvistamenti">
     <table><colgroup><col><col><col></colgroup><thead><tr><th scope="col">Aereo</th><th scope="col">Quota</th><th scope="col">Visto</th></tr></thead><tbody id="flights"></tbody></table>
     <p class="empty" id="empty">Lettura degli avvistamenti…</p>
   </section>
+  <section id="radar" class="radar-panel" hidden aria-labelledby="radarTitle">
+    <h2 id="radarTitle">Radar locale</h2>
+    <div class="meta"><span id="station"></span><button id="editStation" class="text-button" type="button" hidden>Modifica posizione</button></div>
+    <form id="stationForm" class="position-form">
+      <label>Latitudine<input id="lat" inputmode="decimal" placeholder="−90 … 90" required></label>
+      <label>Longitudine<input id="lon" inputmode="decimal" placeholder="−180 … 180" required></label>
+      <button>Salva posizione ricevitore</button>
+    </form>
+    <div id="radarChart" hidden>
+      <div class="scope" id="scope" role="group" aria-label="Posizioni a nord in alto">
+        <span class="ring"></span><span class="ring mid"></span><span class="ring inner"></span>
+        <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">O</span>
+        <span class="origin" title="Ricevitore"></span><div id="markers"></div>
+      </div>
+      <p class="meta" id="scale"></p>
+      <div class="radar-legend" id="legend"></div>
+      <p class="help" id="noFix">In attesa di coordinate ricevute negli ultimi 2 minuti.</p>
+    </div>
+  </section>
+  <dialog id="detail" aria-labelledby="flightName">
+    <header><h2 id="flightName"></h2><button class="text-button" id="closeDetail" type="button">Chiudi</button></header>
+    <dl><dt>ICAO</dt><dd id="flightIcao"></dd><dt>Ultimo avvistamento</dt><dd id="flightSeen"></dd>
+    <dt>Quota</dt><dd id="flightAlt"></dd><dt>Velocità</dt><dd id="flightSpeed"></dd>
+    <dt>Coordinate</dt><dd id="flightPos"></dd><dt>Età posizione</dt><dd id="flightFixAge"></dd>
+    <dt>Dal ricevitore</dt><dd id="flightRange"></dd></dl>
+    <h3>Ultimi messaggi</h3><ul id="frames"></ul><p class="help" id="frameState"></p>
+  </dialog>
   <footer><span id="updated">In attesa dei dati</span><a href="/api">Indice API</a></footer>
   <noscript>Attiva JavaScript per aggiornare l’elenco, oppure apri <a href="/api/aircraft">i dati degli aerei</a>.</noscript>
 </main>
@@ -70,6 +132,170 @@ const clock = new Intl.DateTimeFormat("it-IT", {hour:"2-digit", minute:"2-digit"
 const numbers = new Intl.NumberFormat("it-IT");
 let aircraft = [], hasData = false, historyView = false, receivedAt = 0, pending = false, timer;
 let lastRowsKey = "", rows = [];
+let radarView = false, radarKey = "", selected = null, frameRequest = null;
+const stationKey = "heltec.adsb.station.v1";
+function validPoint(point) {
+  return point && Number.isFinite(point.lat) && Math.abs(point.lat) <= 90 &&
+    Number.isFinite(point.lon) && Math.abs(point.lon) <= 180;
+}
+let station = null;
+try {
+  const saved = JSON.parse(localStorage.getItem(stationKey));
+  if (validPoint(saved)) station = saved;
+} catch { /* The radar also works when browser storage is disabled. */ }
+
+function fixAge(flight, elapsed) {
+  if (!validPoint(flight.position) || !Number.isFinite(flight.age_s) ||
+      !Number.isFinite(flight.seen_ms) || !Number.isFinite(flight.position.fix_ms)) return null;
+  const gap = flight.seen_ms - flight.position.fix_ms;
+  return gap < 0 ? null : flight.age_s + elapsed + gap / 1000;
+}
+function rangeBearing(from, to) {
+  const rad = Math.PI / 180;
+  const a = from.lat * rad, b = to.lat * rad, delta = (to.lon - from.lon) * rad;
+  const h = Math.sin((b - a) / 2) ** 2 + Math.cos(a) * Math.cos(b) * Math.sin(delta / 2) ** 2;
+  const km = 12742 * Math.asin(Math.sqrt(Math.max(0, Math.min(1, h))));
+  const angle = Math.atan2(Math.sin(delta) * Math.cos(b),
+    Math.cos(a) * Math.sin(b) - Math.sin(a) * Math.cos(b) * Math.cos(delta));
+  return {km, angle};
+}
+function distanceText(vector) {
+  const label = numbers.format(Math.round(vector.km * 10) / 10) + " km";
+  if (vector.km < 0.05) return label;
+  const compass = ["N","NE","E","SE","S","SO","O","NO"];
+  return label + " · " + compass[(Math.round(vector.angle / (Math.PI / 4)) + 8) % 8];
+}
+function stationUI(edit) {
+  el("station").textContent = station ? "Ricevitore " + station.lat.toFixed(4) + ", " + station.lon.toFixed(4) :
+    "Inserisci le coordinate del ricevitore in gradi decimali.";
+  el("stationForm").hidden = !edit;
+  el("editStation").hidden = edit;
+  el("radarChart").hidden = !station;
+  if (station && edit) {
+    el("lat").value = station.lat;
+    el("lon").value = station.lon;
+  }
+}
+el("editStation").onclick = () => { stationUI(true); el("lat").focus(); };
+for (const id of ["lat","lon"]) el(id).oninput = () => el(id).setCustomValidity("");
+el("stationForm").onsubmit = event => {
+  event.preventDefault();
+  const point = {};
+  for (const [id, limit] of [["lat",90],["lon",180]]) {
+    const input = el(id), value = input.value.trim().replace(",",".").replace("−","-");
+    point[id] = Number(value);
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || Math.abs(point[id]) > limit) {
+      input.setCustomValidity("Inserisci un valore compreso fra −" + limit + " e " + limit + ".");
+      input.reportValidity();
+      return;
+    }
+  }
+  station = point;
+  try { localStorage.setItem(stationKey, JSON.stringify(point)); } catch {}
+  stationUI(false);
+  radarKey = "";
+  draw();
+};
+stationUI(!station);
+
+function drawRadar(elapsed) {
+  if (!station || !radarView) return;
+  const points = [];
+  for (const f of aircraft) {
+    const age = fixAge(f, elapsed);
+    if (age !== null && age < 120) points.push({f, v:rangeBearing(station, f.position)});
+  }
+  points.sort((a,b) => a.v.km - b.v.km);
+  const farthest = points.length ? points[points.length-1].v.km : 0;
+  const step = [1,2,5,10,20,50,100,200,500,1000,2000,5000,10000].find(n => 3*n >= farthest);
+  const key = JSON.stringify([station,step,points.map(p => [p.f.icao,p.f.boot_id,p.f.callsign,p.f.position.lat,p.f.position.lon])]);
+  if (key === radarKey) return;
+  radarKey = key;
+  el("markers").replaceChildren();
+  el("legend").replaceChildren();
+  el("scale").textContent = "Anelli a " + [step,2*step,3*step].map(n => numbers.format(n)).join(" / ") + " km";
+  el("noFix").hidden = points.length > 0;
+  for (const {f,v} of points) {
+    const label = f.callsign || f.icao, info = distanceText(v);
+    const dot = document.createElement("button"), item = document.createElement("button");
+    dot.type = item.type = "button";
+    dot.className = "marker";
+    dot.title = label + " · " + info;
+    dot.setAttribute("aria-label", dot.title);
+    const radius = 41 * v.km / (3*step);
+    dot.style.left = (50 + radius * Math.sin(v.angle)) + "%";
+    dot.style.top = (50 - radius * Math.cos(v.angle)) + "%";
+    const tag = document.createElement("span");
+    tag.textContent = label;
+    tag.setAttribute("aria-hidden","true");
+    dot.append(tag);
+    const name = document.createElement("strong"), range = document.createElement("span");
+    name.textContent = label;
+    range.textContent = info;
+    item.append(name, range);
+    dot.onclick = item.onclick = () => openFlight(f);
+    el("markers").append(dot);
+    el("legend").append(item);
+  }
+}
+
+function drawDetails(elapsed) {
+  if (!selected || !el("detail").open) return;
+  const f = aircraft.find(f => f.icao === selected.icao && f.boot_id === selected.boot_id);
+  if (f) selected = {...f, sampledAt:receivedAt};
+  const sample = selected;
+  const age = f ? elapsed : Math.max(0, Math.floor((performance.now() - sample.sampledAt) / 1000));
+  el("flightName").textContent = sample.callsign || sample.icao;
+  el("flightIcao").textContent = sample.icao;
+  el("flightSeen").textContent = ageText(ageOf(sample, age));
+  el("flightAlt").textContent = altitude(sample.altitude);
+  el("flightSpeed").textContent = sample.speed || "—";
+  const pos = validPoint(sample.position) ? sample.position : null;
+  el("flightPos").textContent = pos ? pos.lat.toFixed(5) + ", " + pos.lon.toFixed(5) : "—";
+  const fix = fixAge(sample, age);
+  el("flightFixAge").textContent = pos ? ageText(fix === null ? null : Math.floor(fix)) : "—";
+  el("flightRange").textContent = station && pos ? distanceText(rangeBearing(station,pos)) : "—";
+}
+async function loadFrames() {
+  if (!selected || !el("detail").open || frameRequest || document.hidden) return;
+  const {icao, boot_id} = selected, controller = new AbortController();
+  frameRequest = controller;
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const data = await getJSON("/api/messages", controller.signal);
+    if (frameRequest !== controller || !el("detail").open) return;
+    const frames = data.messages.filter(m => m.icao === icao && m.boot_id === boot_id).slice(0,5);
+    const list = document.createDocumentFragment();
+    for (const m of frames) {
+      const row = document.createElement("li"), heading = document.createElement("small"), hex = document.createElement("code");
+      heading.textContent = "DF" + m.df + " · " + ageText(m.age_s);
+      hex.textContent = m.hex;
+      row.append(heading,hex);
+      list.append(row);
+    }
+    el("frames").replaceChildren(list);
+    el("frameState").textContent = frames.length ? "" : "Nessun messaggio disponibile per questo avvistamento.";
+  } catch {
+    if (frameRequest === controller) el("frameState").textContent = "Aggiornamento dei messaggi non riuscito.";
+  } finally {
+    clearTimeout(timeout);
+    if (frameRequest === controller) frameRequest = null;
+  }
+}
+function openFlight(f) {
+  selected = {...f,sampledAt:receivedAt};
+  el("frames").replaceChildren();
+  el("frameState").textContent = "Lettura dei messaggi…";
+  el("detail").showModal();
+  drawDetails(Math.max(0,Math.floor((performance.now() - receivedAt)/1000)));
+  loadFrames();
+}
+el("closeDetail").onclick = () => el("detail").close();
+el("detail").addEventListener("close", () => {
+  if (frameRequest) frameRequest.abort();
+  frameRequest = null;
+  selected = null;
+});
 
 function ageOf(flight, elapsed) {
   return Number.isFinite(flight.age_s) ? flight.age_s + elapsed : null;
@@ -99,14 +325,20 @@ function draw() {
   el("recentCount").textContent = live.length;
   el("pastCount").textContent = old.length;
   const visible = historyView ? old : live;
-  const key = JSON.stringify(visible.map(f => [f.icao, f.callsign, f.altitude]));
+  const key = JSON.stringify(visible.map(f => [f.icao, f.boot_id, f.callsign, f.altitude]));
   if (key !== lastRowsKey) {
     const fragment = document.createDocumentFragment();
     rows = visible.map(f => {
       const tr = document.createElement("tr"), name = tr.insertCell();
-      const id = document.createElement("strong");
-      id.className = "id";
+      const id = document.createElement("button");
+      id.type = "button";
+      id.className = "id flight-link";
       id.textContent = f.callsign || f.icao;
+      id.setAttribute("aria-haspopup","dialog");
+      tr.onclick = () => {
+        const latest = aircraft.find(p => p.icao === f.icao && p.boot_id === f.boot_id);
+        if (latest) openFlight(latest);
+      };
       name.append(id);
       const sub = document.createElement("small");
       sub.className = "sub";
@@ -130,10 +362,16 @@ function draw() {
   });
   el("empty").hidden = visible.length > 0;
   el("empty").textContent = historyView ? "Nessun avvistamento nello storico." : "Nessun aereo ricevuto negli ultimi 2 minuti.";
+  drawRadar(elapsed);
+  drawDetails(elapsed);
 }
-function selectView(past) {
+function selectView(past, radar = false) {
   historyView = past;
-  el("recent").setAttribute("aria-pressed", String(!past));
+  radarView = radar;
+  el("list").hidden = radar;
+  el("radar").hidden = !radar;
+  el("radarTab").setAttribute("aria-pressed",String(radar));
+  el("recent").setAttribute("aria-pressed", String(!past && !radar));
   el("past").setAttribute("aria-pressed", String(past));
   draw();
 }
@@ -163,6 +401,7 @@ async function refresh() {
     el("notice").hidden = true;
     el("updated").textContent = "Aggiornato alle " + clock.format(Date.now());
     draw();
+    loadFrames();
   } catch {
     showState("error", "Heltec irraggiungibile");
     el("notice").hidden = false;
@@ -175,6 +414,7 @@ async function refresh() {
 }
 el("recent").onclick = () => selectView(false);
 el("past").onclick = () => selectView(true);
+el("radarTab").onclick = () => selectView(false,true);
 el("retry").onclick = refresh;
 document.addEventListener("visibilitychange", () => document.hidden ? clearTimeout(timer) : refresh());
 setInterval(() => { if (!document.hidden) draw(); }, 1000);
